@@ -210,7 +210,10 @@ def shortcut(config, path):
         if not answers['continue']:
             return
 
-    path.write_text("""#!{exe}
+    path.write_text("""#!/bin/bash
+if [[ -z "$@" ]]; then
+    set -- "--help"
+fi
 prl-snap -t {template_name} -p {machine_prefix} "$@"
     """.format(
         exe=sys.executable,
