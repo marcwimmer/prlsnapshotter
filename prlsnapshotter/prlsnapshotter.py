@@ -192,24 +192,29 @@ def destroy(config, machine):
         time.sleep(1)
 
 @cli.command(help="Makes a quick call prefix")
-@cli.argument("path", type=click.File('wb'))
+@click.argument("path")
 @pass_config
 def shortcut(config, path):
-    if Path(path).exists():
+    path = Path(path)
+    if path.exists():
+        if 'prl-snap' not in path.read_text():
+            click.secho("File is not a prl snap file and cannot be overwritten.", fg='red')
+            sys.exit(1)
+
         questions = [
-            inquirer.Confirm('continue', f"{path} will be deleted. Continue?", message="Should I continue"),
+            inquirer.Confirm('continue', default=True, message=f"{path} will be deleted. Continue?"),
         ]
         answers = inquirer.prompt(questions)
         if not answers:
             return
-        if answers['continue'] == 'n':
+        if not answers['continue']:
             return
 
-    path.write("""#!{exe}
+    path.write_text("""#!{exe}
 prl-snap -t {template_name} -p {machine_prefix} "$@"
     """.format(
         exe=sys.executable,
         template_name=config.template_name,
-        prefix=config.machine_prefix,
+        machine_prefix=config.machine_prefix,
     ))
-    os.chmod(path, 0o555)
+    os.chmod(path, 0o775)

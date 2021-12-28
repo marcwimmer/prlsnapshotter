@@ -3,7 +3,6 @@ import click
 import logging
 from pathlib import Path
 import sys
-from .tools import cleanup
 
 class Config(object):
     def __init__(self, template_name=None, machine_prefix=None):

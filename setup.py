@@ -23,7 +23,7 @@ URL = 'https://github.com/marcwimmer/prlsnapshotter'
 EMAIL = 'marc@itewimmer.de'
 AUTHOR = 'Marc-Christian Wimmer'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 
 # What packages are required for this module to be executed?
 REQUIRED = [ 'click', 'inquirer', 'arrow', 'pathlib', ]
@@ -131,12 +131,12 @@ setup(
     author_email=EMAIL,
     python_requires=REQUIRES_PYTHON,
     url=URL,
-    # packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
+    packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
-    py_modules=['gimera'],
+    #py_modules=['prlsnapshotter'],
 
     entry_points={
-        'console_scripts': ['prl-snap=prlsnapshotter:prlsnapshotter'],
+        'console_scripts': ['prl-snap=prlsnapshotter:cli'],
     },
     data_files=[
     ],

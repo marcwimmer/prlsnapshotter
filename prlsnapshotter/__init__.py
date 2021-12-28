@@ -7,7 +7,7 @@ global_data = {
 }
 
 @click.group(invoke_without_command=True)
-@click.option("-t", "--template-machine", required=True)kj
+@click.option("-t", "--template-machine", required=True)
 @click.option("-p", "--machine-prefix", required=True)
 @pass_config
 def cli(config, template_machine, machine_prefix):
