@@ -34,14 +34,14 @@ def _get_machine(name):
         return data[0]
     return data
 
-def _make_sure_machine_exists(name):
+def _make_sure_machine_exists(config, name):
     all_machines = _get_all_machines()
     exists = [x for x in all_machines if x['name'] == name]
     if not exists:
-        _clone_machine(name)
+        _clone_machine(config, name)
 
-def _clone_machine(name):
-    subprocess.check_call(['prlctl', 'clone', template_machine_name, '--name', name])
+def _clone_machine(config, name):
+    subprocess.check_call(['prlctl', 'clone', config.template_name, '--name', name])
 
 # def install_new_parallels_machine():
 #     machine_name = machine_prefix + "template"
@@ -52,9 +52,10 @@ def _clone_machine(name):
 @cli.command(help="Starts a parallels machine")
 @click.argument('machine')
 @click.option('-s', '--single', is_flag=True)
-def start(machine, single):
-    machine = machine_prefix + machine
-    _make_sure_machine_exists(machine)
+@pass_config
+def start(config, machine, single):
+    machine = config.machine_prefix + machine
+    _make_sure_machine_exists(config, machine)
     data = _get_machine(machine)
     click.secho(f"Machine is listening on {data['ip_configured']}")
     if single:
@@ -151,11 +152,12 @@ def list_snapshots(config, machine):
         click.secho(f"{snap['name']} from {snap['date']} [{snap['id']}]")
 
 @cli.command()
-def list_machines():
+@pass_config
+def list_machines(config):
     for machine in _get_all_machines():
-        if not machine['name'].startswith(machine_prefix):
+        if not machine['name'].startswith(config.machine_prefix):
             continue
-        if machine['name'] == machine_prefix + "template":
+        if machine['name'] == config.machine_prefix + "template":
             continue
         click.secho(f"{machine['name']} - {machine['status']}")
 
