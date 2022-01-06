@@ -41,7 +41,7 @@ def _make_sure_machine_exists(config, name):
         _clone_machine(config, name)
 
 def _clone_machine(config, name):
-    subprocess.check_call(['prlctl', 'clone', config.template_name, '--name', name])
+    subprocess.check_call(['prlctl', 'clone', config.template_machine, '--name', name])
 
 # def install_new_parallels_machine():
 #     machine_name = machine_prefix + "template"
@@ -199,7 +199,7 @@ def destroy(config, machine):
 def shortcut(config, path):
     path = Path(path)
     if path.exists():
-        if 'prl-snap' not in path.read_text():
+        if 'MARKER: pgsnap' not in path.read_text():
             click.secho("File is not a prl snap file and cannot be overwritten.", fg='red')
             sys.exit(1)
 
@@ -212,14 +212,29 @@ def shortcut(config, path):
         if not answers['continue']:
             return
 
-    path.write_text("""#!/bin/bash
-if [[ -z "$@" ]]; then
-    set -- "--help"
-fi
-prl-snap -t {template_name} -p {machine_prefix} "$@"
-    """.format(
-        exe=sys.executable,
-        template_name=config.template_name,
-        machine_prefix=config.machine_prefix,
-    ))
+    orig_file = subprocess.check_output(["which", "prl-snap"]).strip().decode('utf-8')
+    if not orig_file:
+        raise Exception("Did not find prl-snap.")
+    template = Path(orig_file).read_text().split("\n")[0]
+    append = template + """
+# -*- coding: utf-8 -*-
+# MARKER: pgsnap
+import re
+import sys
+from prlsnapshotter import cli
+if __name__ == '__main__':
+    sys.argv.insert(1, '-t')
+    sys.argv.insert(2, '{template}')
+    sys.argv.insert(3, '-p')
+    sys.argv.insert(4, '{machine_prefix}')
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    sys.exit(cli())
+""".format(
+        template=config.template_machine,
+        machine_prefix=config.machine_prefix
+    )
+    path.write_text(append)
+    os.chmod(path, 0o555)
+
+    subprocess.run(['click-completion-helper', 'setup', path.name])
     os.chmod(path, 0o775)

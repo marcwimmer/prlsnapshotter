@@ -10,52 +10,39 @@ import sys
 from shutil import rmtree
 from pathlib import Path
 
+from setuptools.config import read_configuration
 from setuptools import find_packages, setup, Command
 from setuptools.command.install import install
+import subprocess
 from subprocess import check_call, check_output
 
+# HACK to ignore wheel building from pip and just to source distribution
+if 'bdist_wheel' in sys.argv:
+    sys.exit(0)
 
-
-# Package meta-data.
-NAME = 'prlsnapshotter'
-DESCRIPTION = 'Snapshotting parallels on command line and create machine by template.'
-URL = 'https://github.com/marcwimmer/prlsnapshotter'
-EMAIL = 'marc@itewimmer.de'
-AUTHOR = 'Marc-Christian Wimmer'
-REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '0.0.4'
+setup_cfg = read_configuration("setup.cfg")
+metadata = setup_cfg['metadata']
+NAME = metadata['name']
 
 # What packages are required for this module to be executed?
-REQUIRED = [ 'click', 'inquirer', 'arrow', 'pathlib', ]
-
-# What packages are optional?
-EXTRAS = {
-    # 'fancy feature': ['django'],
-}
-
-# The rest you shouldn't have to touch too much :)
-# ------------------------------------------------
-# Except, perhaps the License and Trove Classifiers!
-# If you do change the License, remember to change the Trove Classifier for that!
+REQUIRED = [ 'click', 'inquirer', 'arrow', 'pathlib', 'click-completion-helper']
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-# Import the README and use it as the long-description.
-# Note: this will only work if 'README.md' is present in your MANIFEST.in file!
 try:
     with io.open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
         long_description = '\n' + f.read()
 except FileNotFoundError:
-    long_description = DESCRIPTION
+    long_description = metadata['DESCRIPTION']
 
 # Load the package's __version__.py module as a dictionary.
 about = {}
-if not VERSION:
-    project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
+if not metadata['version']:
+    project_slug = metadata['name'].lower().replace("-", "_").replace(" ", "_")
     with open(os.path.join(here, project_slug, '__version__.py')) as f:
         exec(f.read(), about)
 else:
-    about['__version__'] = VERSION
+    about['__version__'] = metadata['version']
 
 
 class UploadCommand(Command):
@@ -75,15 +62,19 @@ class UploadCommand(Command):
     def finalize_options(self):
         pass
 
+    def clear_builds(self):
+        for path in ['dist', 'build', NAME.replace("-", "_") + ".egg-info"]:
+            try:
+                self.status(f'Removing previous builds from {path}')
+                rmtree(os.path.join(here, path))
+            except OSError:
+                pass
+
     def run(self):
-        try:
-            self.status('Removing previous builds…')
-            rmtree(os.path.join(here, 'dist'))
-        except OSError:
-            pass
+        self.clear_builds()
 
         self.status('Building Source and Wheel (universal) distribution…')
-        os.system('{0} setup.py sdist bdist_wheel --universal'.format(sys.executable))
+        os.system('{0} setup.py sdist'.format(sys.executable))
 
         self.status('Uploading the package to PyPI via Twine…')
         os.system('twine upload dist/*')
@@ -92,69 +83,35 @@ class UploadCommand(Command):
         os.system('git tag v{0}'.format(about['__version__']))
         os.system('git push --tags')
 
+        self.clear_builds()
+
         sys.exit()
 
-def setup_click_autocompletion():
-
-    def setup_for_bash():
-        path = Path("/etc/bash_completion.d")
-        done_bash = False
-        if path.exists():
-            if os.access(path, os.W_OK):
-                os.system(f"_{NAME.upper()}_COMPLETE=bash_source {NAME} > '{path / NAME}'")
-                done_bash = True
-        if not done_bash:
-            if not (path / NAME).exists():
-                bashrc = Path(os.path.expanduser("~")) / '.bashrc'
-                complete_file = bashrc.parent / f'.{NAME}-completion.sh'
-                os.system(f"_{NAME.upper()}_COMPLETE=bash_source {NAME} > '{complete_file}'")
-                if complete_file.name not in bashrc.read_text():
-                    content = bashrc.read_text()
-                    content += '\nsource ' + complete_file.name
-                    bashrc.write_text(content)
-    setup_for_bash()
-
 class InstallCommand(install):
-    """Post-installation for installation mode."""
     def run(self):
         install.run(self)
-        setup_click_autocompletion()
+        self.execute(self.setup_click_autocompletion, args=tuple([]), msg="Setup Click Completion")
+
+    def setup_click_autocompletion(self):
+        for console_script in setup_cfg['options']['entry_points']['console_scripts']:
+            console_call = console_script.split("=")[0].strip()
+
+            # if click completion helper is fresh installed and not available now
+            subprocess.run(["pip3", "install", "click-completion-helper"])
+            subprocess.run([
+                "click-completion-helper",
+                "setup",
+                console_call,
+            ])
 
 # Where the magic happens:
 setup(
-    name=NAME,
     version=about['__version__'],
-    description=DESCRIPTION,
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author=AUTHOR,
-    author_email=EMAIL,
-    python_requires=REQUIRES_PYTHON,
-    url=URL,
     packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    # If your package is a single module, use this instead of 'packages':
-    #py_modules=['prlsnapshotter'],
-
-    entry_points={
-        'console_scripts': ['prl-snap=prlsnapshotter:cli'],
-    },
-    data_files=[
-    ],
     install_requires=REQUIRED,
-    extras_require=EXTRAS,
     include_package_data=True,
-    license='MIT',
-    classifiers=[
-        # Trove classifiers
-        # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy'
-    ],
-    # $ setup.py publish support.
     cmdclass={
         'upload': UploadCommand,
         'install': InstallCommand,

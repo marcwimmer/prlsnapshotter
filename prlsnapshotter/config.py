@@ -5,9 +5,9 @@ from pathlib import Path
 import sys
 
 class Config(object):
-    def __init__(self, template_name=None, machine_prefix=None):
+    def __init__(self, template_machine=None, machine_prefix=None):
         super().__init__()
-        self.template_name = template_name
+        self.template_machine = template_machine
         self.machine_prefix = machine_prefix
 
         def cleanup():
